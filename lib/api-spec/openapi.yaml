@@ -3,13 +3,19 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Personal expense tracking and analysis API
 servers:
-  - url: /api
-    description: Base API path
+  - url: /ledger-api
+    description: Flask expense API
 tags:
   - name: health
     description: Health operations
+  - name: expenses
+    description: Expense and category management
+  - name: analytics
+    description: Expense analytics and visualizations
+  - name: ai
+    description: Optional local Ollama assistance
 paths:
   /healthz:
     get:
@@ -24,6 +30,193 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [expenses]
+      summary: List expense categories
+      responses:
+        "200":
+          description: Categories
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryList"
+  /expenses:
+    get:
+      operationId: listExpenses
+      tags: [expenses]
+      summary: List expenses with optional filters
+      parameters:
+        - in: query
+          name: start_date
+          schema: { type: string, format: date }
+        - in: query
+          name: end_date
+          schema: { type: string, format: date }
+        - in: query
+          name: category_id
+          schema: { type: string }
+      responses:
+        "200":
+          description: Filtered expense list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpenseList"
+    post:
+      operationId: createExpense
+      tags: [expenses]
+      summary: Add an expense
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExpenseInput"
+      responses:
+        "201":
+          description: Created expense identifier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedExpense"
+  /expenses/{expense_id}:
+    put:
+      operationId: updateExpense
+      tags: [expenses]
+      summary: Update an expense
+      parameters:
+        - in: path
+          name: expense_id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExpenseInput"
+      responses:
+        "200":
+          description: Expense updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+    delete:
+      operationId: deleteExpense
+      tags: [expenses]
+      summary: Delete an expense
+      parameters:
+        - in: path
+          name: expense_id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Expense deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+  /expenses/{expense_id}/category:
+    patch:
+      operationId: moveExpenseCategory
+      tags: [expenses]
+      summary: Change an expense category
+      parameters:
+        - in: path
+          name: expense_id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExpenseCategoryInput"
+      responses:
+        "200":
+          description: Category updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+  /analytics:
+    get:
+      operationId: getAnalytics
+      tags: [analytics]
+      summary: Get filtered analytics and chart images
+      parameters:
+        - in: query
+          name: start_date
+          schema: { type: string, format: date }
+        - in: query
+          name: end_date
+          schema: { type: string, format: date }
+        - in: query
+          name: category_id
+          schema: { type: string }
+      responses:
+        "200":
+          description: Analytics and Matplotlib chart images
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsResponse"
+  /ai/status:
+    get:
+      operationId: getAiStatus
+      tags: [ai]
+      summary: Check local Ollama availability
+      responses:
+        "200":
+          description: Ollama status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiStatus"
+  /ai/categorize:
+    post:
+      operationId: categorizeExpense
+      tags: [ai]
+      summary: Suggest a category for an expense description
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategorizationInput"
+      responses:
+        "200":
+          description: Category suggestion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategorizationResponse"
+  /ai/insights:
+    post:
+      operationId: generateInsights
+      tags: [ai]
+      summary: Generate insights for current filters
+      parameters:
+        - in: query
+          name: start_date
+          schema: { type: string, format: date }
+        - in: query
+          name: end_date
+          schema: { type: string, format: date }
+        - in: query
+          name: category_id
+          schema: { type: string }
+      responses:
+        "200":
+          description: Financial insights
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InsightsResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +226,103 @@ components:
           type: string
       required:
         - status
+    Category:
+      type: object
+      properties:
+        category_id: { type: integer }
+        category_name: { type: string }
+      required: [category_id, category_name]
+    CategoryList:
+      type: object
+      properties:
+        success: { type: boolean }
+        categories:
+          type: array
+          items: { $ref: "#/components/schemas/Category" }
+      required: [success, categories]
+    Expense:
+      type: object
+      properties:
+        expense_id: { type: integer }
+        expense_date: { type: string, format: date }
+        category_id: { type: integer }
+        category_name: { type: string }
+        amount: { type: number }
+        description: { type: ["string", "null"] }
+        payment_method: { type: ["string", "null"] }
+      required: [expense_id, expense_date, category_id, category_name, amount]
+    ExpenseList:
+      type: object
+      properties:
+        success: { type: boolean }
+        expenses:
+          type: array
+          items: { $ref: "#/components/schemas/Expense" }
+      required: [success, expenses]
+    ExpenseInput:
+      type: object
+      properties:
+        expense_date: { type: string, format: date }
+        category_id: { type: integer }
+        amount: { type: number, exclusiveMinimum: 0 }
+        description: { type: string, maxLength: 255 }
+        payment_method: { type: string, maxLength: 50 }
+      required: [expense_date, category_id, amount]
+    ExpenseCategoryInput:
+      type: object
+      properties:
+        category_id: { type: integer }
+      required: [category_id]
+    CreatedExpense:
+      type: object
+      properties:
+        success: { type: boolean }
+        expense_id: { type: integer }
+      required: [success, expense_id]
+    SuccessResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+      required: [success]
+    AnalyticsResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        analytics:
+          type: object
+          additionalProperties: true
+        charts:
+          type: object
+          properties:
+            bar_chart: { type: string }
+            pie_chart: { type: string }
+          required: [bar_chart, pie_chart]
+      required: [success, analytics, charts]
+    AiStatus:
+      type: object
+      properties:
+        online: { type: boolean }
+        model: { type: string }
+        available: { type: boolean }
+      required: [online, model, available]
+    CategorizationInput:
+      type: object
+      properties:
+        description: { type: string, minLength: 1 }
+      required: [description]
+    CategorizationResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        category_id: { type: integer }
+        category_name: { type: string }
+        source: { type: string }
+      required: [success, category_id, category_name, source]
+    InsightsResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        insights: { type: string }
+        source: { type: string }
+      required: [success, insights, source]
 

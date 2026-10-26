@@ -53,3 +53,8 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+.pythonlibs/
+.venv/
+__pycache__/
+*.py[cod]
+artifacts/expense-ledger/server/instance/

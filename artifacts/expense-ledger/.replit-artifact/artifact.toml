@@ -1,0 +1,50 @@
+kind = "web"
+previewPath = "/"
+title = "Expense Ledger"
+description = "A personal expense tracking and analysis app with expense management, analytics, and optional local Ollama assistance."
+version = "1.0.0"
+id = "artifacts/expense-ledger"
+router = "path"
+
+[[services]]
+name = "web"
+paths = ["/"]
+localPort = 21850
+
+[services.development]
+run = "pnpm --filter @workspace/expense-ledger run dev"
+
+[services.production]
+build = ["pnpm", "--filter", "@workspace/expense-ledger", "run", "build"]
+serve = "static"
+publicDir = "artifacts/expense-ledger/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21850"
+BASE_PATH = "/"
+
+[[services]]
+name = "Flask API"
+paths = ["/ledger-api"]
+localPort = 5001
+
+[services.development]
+run = "python3 server/app.py"
+
+[services.production]
+
+[services.production.build]
+args = ["uv", "sync", "--locked", "--no-dev"]
+
+[services.production.run]
+args = ["uv", "run", "--no-sync", "python3", "artifacts/expense-ledger/server/app.py"]
+
+[services.production.run.env]
+PORT = "5001"
+
+[services.production.health.startup]
+path = "/ledger-api/healthz"
